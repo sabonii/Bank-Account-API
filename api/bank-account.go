@@ -31,8 +31,8 @@ type AccountServiceMySQL struct {
 
 func (s *AccountServiceMySQL) List(userID int) ([]BankAccount, error) {
 	accounts := make([]BankAccount, 0)
-	queryStmt := "SELECT ID, USER_ID, ACCOUNT_NUMBER, NAME, BALANCE FROM BANK_ACCOUNT ORDER BY ID"
-	if rows, err := s.DB.Query(queryStmt); err != nil {
+	queryStmt := "SELECT ID, USER_ID, ACCOUNT_NUMBER, NAME, BALANCE FROM BANK_ACCOUNT WHERE USER_ID = ? ORDER BY ID"
+	if rows, err := s.DB.Query(queryStmt, userID); err != nil {
 		return nil, err
 	} else {
 		for rows.Next() {

@@ -212,9 +212,12 @@ func (s *Server) Transfer(c *gin.Context) {
 	}
 }
 
+func (s *Server) logRequest(c *gin.Context) {
+	log.Printf("Request %v %v\n", c.Request.Method, c.Request.URL)
+}
+
 func (s *Server) Authenticate(c *gin.Context) {
 	apiKey := c.Request.Header.Get("key")
-	fmt.Println("Received Key: " + apiKey)
 	row := s.DB.QueryRow("SELECT `key` FROM `KEY` WHERE `key` = ?", apiKey)
 	if err := row.Scan(&apiKey); err == nil {
 		return
@@ -224,24 +227,24 @@ func (s *Server) Authenticate(c *gin.Context) {
 
 func setupRoute(s *Server) *gin.Engine {
 	r := gin.Default()
-
-	r.POST("/transfers", s.Transfer)
+	
+	r.POST("/transfers", s.logRequest, s.Transfer)
 	
 	userGroup := r.Group("/users")
 	userGroup.Use(s.Authenticate)
-	userGroup.GET("", s.GetAllUsers)
-	userGroup.GET("/:id", s.GetUserByID)
-	userGroup.POST("", s.CreateNewUser)
-	userGroup.PUT("/:id", s.UpdateUser)
-	userGroup.DELETE("/:id", s.DeleteUserByID)
-	userGroup.GET("/:id/bankAccounts", s.GetBankAccountsByUserID)
-	userGroup.POST("/:id/bankAccounts", s.CreateNewBankAccount)
+	userGroup.GET("", s.logRequest, s.GetAllUsers)
+	userGroup.GET("/:id", s.logRequest, s.GetUserByID)
+	userGroup.POST("", s.logRequest, s.CreateNewUser)
+	userGroup.PUT("/:id", s.logRequest, s.UpdateUser)
+	userGroup.DELETE("/:id", s.logRequest, s.DeleteUserByID)
+	userGroup.GET("/:id/bankAccounts", s.logRequest, s.GetBankAccountsByUserID)
+	userGroup.POST("/:id/bankAccounts", s.logRequest, s.CreateNewBankAccount)
 
 	accountGroup := r.Group("/bankAccounts")
 	accountGroup.Use(s.Authenticate)
-	accountGroup.DELETE("/:id", s.DeleteBankAccount)
-	accountGroup.PUT("/:id/withdraw", s.WithdrawBankAccount)
-	accountGroup.PUT("/:id/deposit", s.DepositBankAccount)
+	accountGroup.DELETE("/:id", s.logRequest, s.DeleteBankAccount)
+	accountGroup.PUT("/:id/withdraw", s.logRequest, s.WithdrawBankAccount)
+	accountGroup.PUT("/:id/deposit", s.logRequest, s.DepositBankAccount)
 	
 	// Test Command Example: 
 	// curl -XPOST https://localhost:8080/admin/secrets -u admin:1234 -d "{\"key\": \"foobar\"}""
@@ -249,7 +252,7 @@ func setupRoute(s *Server) *gin.Engine {
 	adminGroup.Use(gin.BasicAuth(gin.Accounts{
 		"admin": "1234",
 	}))
-	adminGroup.POST("/secrets", s.CreateSecretKey)
+	adminGroup.POST("/secrets", s.logRequest, s.CreateSecretKey)
 	
 	return r
 }
@@ -317,4 +320,6 @@ func (s *Server) CreateSecretKey(c *gin.Context) {
 	secret.ID = i
 	c.JSON(http.StatusCreated, secret)
 }
+
+
 
