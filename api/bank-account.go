@@ -45,7 +45,7 @@ func (s *AccountServiceMySQL) List(userID int) ([]BankAccount, error) {
 }
 
 func (s *AccountServiceMySQL) Create(acc *BankAccount) error {
-	insertStmt := "INSERT INTO ACCOUNT(ID, USER_ID, ACCOUNT_NUMBER, NAME, BALANCE) VALUES(?,?,?,?,?)"
+	insertStmt := "INSERT INTO BANK_ACCOUNT(ID, USER_ID, ACCOUNT_NUMBER, NAME, BALANCE) VALUES(?,?,?,?,?)"
 	if result, err := s.DB.Exec(insertStmt, acc.ID, acc.UserID, acc.AccountNumber, acc.Name, acc.Balance); err != nil {
 		return err
 	} else {
@@ -67,8 +67,8 @@ func (s *AccountServiceMySQL) Delete(id int) error {
 }
 
 func (s *AccountServiceMySQL) Withdraw(id, amount int) (*BankAccount, error) {
-	stmt := "UPDATE BANK_ACCOUNT SET BALANCE = BALANCE - ?1 WHERE ID = ?2 AND BALANCE > ?1"
-	if res, err := s.DB.Exec(stmt, amount, id); err != nil {
+	stmt := "UPDATE BANK_ACCOUNT SET BALANCE = BALANCE - ? WHERE ID = ? AND BALANCE > ?"
+	if res, err := s.DB.Exec(stmt, amount, id, amount); err != nil {
 		return nil, err
 	} else {
 		updated, err := res.RowsAffected()
@@ -116,9 +116,9 @@ func (s *AccountServiceMySQL) Transfer(amount, fromAccID, toAccID int) error {
 	if tx, err := s.DB.Begin(); err != nil {
 		return err
 	} else {
-		withdrawStmt := "UPDATE BANK_ACCOUNT SET BALANCE = BALANCE - ?1 WHERE ID = ?2 AND BALANCE > ?1"
+		withdrawStmt := "UPDATE BANK_ACCOUNT SET BALANCE = BALANCE - ? WHERE ID = ? AND BALANCE > ?"
 
-		res, err := tx.Exec(withdrawStmt, amount, fromAccID)
+		res, err := tx.Exec(withdrawStmt, amount, fromAccID, amount)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -141,7 +141,12 @@ func (s *AccountServiceMySQL) Transfer(amount, fromAccID, toAccID int) error {
 				return err
 			}
 			if updated > 0 {
-				return nil
+				err = tx.Commit()
+				if err != nil {
+					return err
+				} else {
+					return nil
+				}
 			} else {
 				return errors.New("To bank account not found")
 			}

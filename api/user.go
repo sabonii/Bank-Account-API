@@ -38,7 +38,7 @@ func (s *UserServiceMySQL) Insert(u *User) error {
 }
 
 func (s *UserServiceMySQL) Update(u *User) error {
-	stmt := "UPDATE USERS SET first_name = ?, last_name = ? WHERE ID = ?"
+	stmt := "UPDATE USER SET first_name = ?, last_name = ? WHERE ID = ?"
 	if _, err := s.DB.Exec(stmt, u.FirstName, u.LastName, u.ID); err != nil {
 		return err
 	} else {
