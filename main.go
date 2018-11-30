@@ -94,9 +94,6 @@ func (s *Server) CreateNewUser(c *gin.Context) {
 	}
 }
 
-func (s *Server) Transfer(c *gin.Context) {
-}
-
 func (s *Server) GetBankAccountsByUserID(c *gin.Context) {
 	if id, err := strconv.Atoi(c.Param("id")); err != nil {
 		s.handleParamError(c, err)
@@ -111,15 +108,105 @@ func (s *Server) GetBankAccountsByUserID(c *gin.Context) {
 }
 
 func (s *Server) CreateNewBankAccount(c *gin.Context) {
+	if id, err := strconv.Atoi(c.Param("id")); err != nil {
+		s.handleParamError(c, err)
+	} else {
+		var account api.BankAccount
+		if err := c.ShouldBindJSON(&account); err != nil {
+			s.handleParamError(c, err)
+			return
+		}
+		account.UserID = id
+		if err := s.accountService.Create(&account); err != nil {
+			s.handleDBError(c, err)
+			return
+		} else {
+			c.JSON(http.StatusCreated, account)
+		}
+	}
 }
 
 func (s *Server) DeleteBankAccount(c *gin.Context) {
+	if id, err := strconv.Atoi(c.Param("id")); err != nil {
+		s.handleParamError(c, err)
+	} else {
+		if err := s.accountService.Delete(id); err != nil {
+			s.handleDBError(c, err)
+		}
+	}
 }
 
 func (s *Server) WithdrawBankAccount(c *gin.Context) {
+	if id, err := strconv.Atoi(c.Param("id")); err != nil {
+		s.handleParamError(c, err)
+	} else {
+		h := map[string]string{}
+		if err := c.ShouldBindJSON(&h); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, err)
+			return
+		}
+		amount, err := strconv.Atoi(h["amount"])
+		if err != nil {
+			s.handleParamError(c, err)
+			return
+		}
+		if acc, err := s.accountService.Withdraw(id, amount); err != nil {
+			s.handleDBError(c, err)
+			return
+		} else {
+			c.JSON(http.StatusOK, acc)
+		}
+	}
 }
 
 func (s *Server) DepositBankAccount(c *gin.Context) {
+	if id, err := strconv.Atoi(c.Param("id")); err != nil {
+		s.handleParamError(c, err)
+	} else {
+		h := map[string]string{}
+		if err := c.ShouldBindJSON(&h); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, err)
+			return
+		}
+		amount, err := strconv.Atoi(h["amount"])
+		if err != nil {
+			s.handleParamError(c, err)
+			return
+		}
+		if acc, err := s.accountService.Deposit(id, amount); err != nil {
+			s.handleDBError(c, err)
+			return
+		} else {
+			c.JSON(http.StatusOK, acc)
+		}
+	}
+}
+
+func (s *Server) Transfer(c *gin.Context) {
+	h := map[string]string{}
+	if err := c.ShouldBindJSON(&h); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		return
+	}
+	amount, err := strconv.Atoi(h["amount"])
+	if err != nil {
+		s.handleParamError(c, err)
+		return
+	}
+	fromAcc, err := strconv.Atoi(h["from"])
+	if err != nil {
+		s.handleParamError(c, err)
+		return
+	}
+	toAcc, err := strconv.Atoi(h["to"])
+	if err != nil {
+		s.handleParamError(c, err)
+		return
+	}
+	err = s.accountService.Transfer(amount, fromAcc, toAcc)
+	if err != nil {
+		s.handleDBError(c, err)
+	}
 }
 
 /*func (s *Server) AuthToDo(c *gin.Context) {
