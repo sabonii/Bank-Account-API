@@ -10,9 +10,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type Server struct {
+	DB *sql.DB
 	userService api.UserService
 	accountService api.AccountService
 }
@@ -209,22 +212,15 @@ func (s *Server) Transfer(c *gin.Context) {
 	}
 }
 
-/*func (s *Server) AuthToDo(c *gin.Context) {
-	if user, _, ok := c.Request.BasicAuth(); ok {
-		var id int64
-		row := s.db.QueryRow("SELECT count(*) FROM secrets WHERE key = $1", user)
-		if err := row.Scan(&id); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-				"object":  "error",
-				"message": fmt.Sprintf("db: query error: %s", err),
-			})
-		} else if id != 1 {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		}
-	} else {
-		c.AbortWithStatus(http.StatusUnauthorized)
+func (s *Server) Authenticate(c *gin.Context) {
+	apiKey := c.Request.Header.Get("key")
+	fmt.Println("Received Key: " + apiKey)
+	row := s.DB.QueryRow("SELECT `key` FROM `KEY` WHERE `key` = ?", apiKey)
+	if err := row.Scan(&apiKey); err == nil {
+		return
 	}
-}*/
+	c.AbortWithStatus(http.StatusUnauthorized)
+}
 
 func setupRoute(s *Server) *gin.Engine {
 	r := gin.Default()
@@ -232,9 +228,7 @@ func setupRoute(s *Server) *gin.Engine {
 	r.POST("/transfers", s.Transfer)
 	
 	userGroup := r.Group("/users")
-	/*
-	userGroup.Use(s.AuthToDo)
-	*/
+	userGroup.Use(s.Authenticate)
 	userGroup.GET("", s.GetAllUsers)
 	userGroup.GET("/:id", s.GetUserByID)
 	userGroup.POST("", s.CreateNewUser)
@@ -244,16 +238,18 @@ func setupRoute(s *Server) *gin.Engine {
 	userGroup.POST("/:id/bankAccounts", s.CreateNewBankAccount)
 
 	accountGroup := r.Group("/bankAccounts")
+	accountGroup.Use(s.Authenticate)
 	accountGroup.DELETE("/:id", s.DeleteBankAccount)
 	accountGroup.PUT("/:id/withdraw", s.WithdrawBankAccount)
 	accountGroup.PUT("/:id/deposit", s.DepositBankAccount)
 	
+	// Test Command Example: 
 	// curl -XPOST https://localhost:8080/admin/secrets -u admin:1234 -d "{\"key\": \"foobar\"}""
 	adminGroup := r.Group("/admin")
 	adminGroup.Use(gin.BasicAuth(gin.Accounts{
 		"admin": "1234",
 	}))
-	// adminGroup.POST("/secrets", s.CreateSecret)
+	adminGroup.POST("/secrets", s.CreateSecretKey)
 	
 	return r
 }
@@ -283,6 +279,7 @@ func main() {
 	*/
 
 	s := &Server{
+		DB: db,
 		userService: &api.UserServiceMySQL{
 			DB: db,
 		},
@@ -299,27 +296,25 @@ type Secret struct {
 	Key string
 }
 
-/*
-func (s *Server) CreateSecret(c *gin.Context) {
+
+func (s *Server) CreateSecretKey(c *gin.Context) {
 	var secret Secret
 	err := c.ShouldBindJSON(&secret)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"object":  "error",
-			"message": fmt.Sprintf("json: wrong params: %s", err),
-		})
+		s.handleParamError(c, err)
 		return
 	}
-	row := s.db.QueryRow("INSERT INTO `KEY` (key) values ($1) RETURNING id", secret.Key)
-
-	if err := row.Scan(&secret.ID); err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"object":  "error",
-			"message": fmt.Sprintf("db: query error: %s", err),
-		})
+	res, err := s.DB.Exec("INSERT INTO `KEY` (`key`) values (?)", secret.Key)
+	if err != nil {
+		s.handleDBError(c, err)
 		return
 	}
-
+	i, err := res.LastInsertId()
+	if err != nil {
+		s.handleDBError(c, err)
+		return
+	}
+	secret.ID = i
 	c.JSON(http.StatusCreated, secret)
 }
-*/
+
