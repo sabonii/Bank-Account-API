@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -258,7 +259,8 @@ func setupRoute(s *Server) *gin.Engine {
 }
 
 func main() {
-	db, err := sql.Open("mysql", "root:fxrate@/GoDB")
+	// Testing Local Database URL: "root:fxrate@/GoDB"
+	db, err := sql.Open("mysql", os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -291,7 +293,7 @@ func main() {
 		},
 	}
 	r := setupRoute(s)
-	r.Run(":8080")
+	r.Run(":" + os.Getenv("PORT"))
 }
 
 type Secret struct {
